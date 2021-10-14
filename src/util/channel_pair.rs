@@ -13,7 +13,7 @@ impl <T>ChannelPair<T> {
     /// # Example
     /// ```
     ///
-    /// use crate::nexus::util::ChannelPair;
+    /// use crate::nexus_unity_sdbp::util::ChannelPair;
     ///
     /// let (mut server, mut client) = ChannelPair::new();
     /// server.tx().send("abc");
