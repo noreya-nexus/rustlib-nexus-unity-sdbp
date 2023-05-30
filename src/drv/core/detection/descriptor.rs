@@ -22,7 +22,7 @@ pub struct DescriptorError {
 
 fn read_raw(file_path: PathBuf) -> Option<String> {
 
-    trace!("Read from: {}",file_path.to_str().unwrap());
+    trace!("Read from: {}",file_path.to_str().expect("Could not read from path"));
 
     let mut file = match  File::open(file_path) {
         Ok(value) => value,
@@ -64,7 +64,7 @@ pub fn get_vendor_id(path : &PathBuf) -> Result<String,DescriptorError> {
 
 
 pub fn get_timestamp(path : &PathBuf) -> u32 {
-    let  meta = std::fs::metadata(path).unwrap();
+    let  meta = std::fs::metadata(path).expect("Could not get timestamp");
     FileTime::from_last_modification_time(&meta).nanoseconds()
 }
 

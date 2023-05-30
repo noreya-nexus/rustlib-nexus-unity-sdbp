@@ -85,6 +85,9 @@ pub struct Descriptor {
     max_sclk_speed:u32,
 
     #[serde(skip_serializing)]
+    device_session:String,
+
+    #[serde(skip_serializing)]
     timestamp:u32,
 
     #[serde(skip_serializing)]
@@ -116,6 +119,7 @@ impl Descriptor {
             serial_code: "".to_string(),
             vendor_name: "".to_string(),
             vendor_product_id: "".to_string(),
+            device_session: "".to_string(),
             timestamp:0,
             dev_file : _path,
             uid : 0,
@@ -191,6 +195,11 @@ impl Descriptor {
     pub fn vendor_product_id(&self) -> &String { &self.vendor_product_id}
     pub fn set_vendor_product_id(&mut self, product_id : String ) {
         self.vendor_product_id = product_id;
+    }
+
+    pub fn device_session(&self) -> &String { &self.device_session }
+    pub fn set_device_session(&mut self,device_session : String) {
+        self.device_session = device_session;
     }
 
     pub fn timestamp(&self) -> u32 { self.timestamp }

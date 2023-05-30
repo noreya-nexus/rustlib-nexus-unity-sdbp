@@ -24,9 +24,10 @@ impl SdbpkCheck {
                 let mut error = false;
                 let mut version = version;
                 let clean_version = version.strip_suffix("\n");
-                if clean_version.is_some(){
-                    version = clean_version.unwrap().to_string();
-                }
+                version = match clean_version {
+                    None => {"".to_string()} // Length check will fail
+                    Some(version) => {version.to_string()}
+                };
                 let split: Vec<&str> = version.split(".").collect();
                 if split.len() != 3 {
                     error = true;
@@ -82,9 +83,18 @@ impl SdbpkCheck {
             Err(err) => { Err(err.to_string()) }
         };
 
-        if result.is_err() {
-            return Err(result.err().unwrap());
+        match result {
+            Ok(result) => {
+                Ok(result)
+            }
+            Err(_) => {
+                return match result.err() {
+                    None => { Err("Unknown error".to_string()) }
+                    Some(err) => {
+                        Err(err)
+                    }
+                }
+            }
         }
-        Ok(result.ok().unwrap())
     }
 }

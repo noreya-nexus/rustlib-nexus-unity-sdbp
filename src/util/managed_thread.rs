@@ -14,7 +14,7 @@ pub enum ManagedThreadState {
 
 /// Managed Thread, which provides standard thread control features like  stop
 pub struct ManagedThreadHandle<T> {
-    chn : ChannelPair<ManagedThreadState>,
+    pub chn : ChannelPair<ManagedThreadState>,
     handle : JoinHandle<T>,
 }
 
@@ -35,12 +35,15 @@ impl <T>ManagedThreadHandle<T> {
 
         match input {
             ManagedThreadState::OK => {
-                trace!("Successfully stopped thread: {:?}", self.handle.thread().name());
+                debug!("Successfully stopped thread: {:?}", self.handle.thread().name());
                 return Ok(());
+            },
+            ManagedThreadState::UNDEFINED => {
+                // Note: This is ok because some threads may already be dead
             },
             _ => (),
         };
-        return Err(Error::new(std::io::ErrorKind::TimedOut, format!("Cannot stopp thread {:?}", self.handle.thread().name())));
+        return Err(Error::new(std::io::ErrorKind::TimedOut, format!("Cannot stop thread {:?}", self.handle.thread().name())));
     }
 }
 
@@ -69,7 +72,7 @@ pub fn spawn<F, T>(name: String,f: F) -> ManagedThreadHandle<T> where
     let (host_pair, task_pair) = ChannelPair::<ManagedThreadState>::new();
     let builder = std::thread::Builder::new().name(name);
 
-    let handle = builder.spawn(move || f(task_pair)).unwrap();
+    let handle = builder.spawn(move || f(task_pair)).expect("Could not spawn thread");
 
     ManagedThreadHandle{chn: host_pair, handle}
 }

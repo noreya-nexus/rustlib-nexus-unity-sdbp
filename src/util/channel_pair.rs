@@ -1,4 +1,4 @@
-use crossbeam_channel::{Sender, Receiver, unbounded};
+use crossbeam_channel::{Sender, Receiver, unbounded, bounded};
 
 /// Creates a connected Crossbeam channel pair
 pub struct ChannelPair<T> {
@@ -13,7 +13,7 @@ impl <T>ChannelPair<T> {
     /// # Example
     /// ```
     ///
-    /// use crate::nexus_unity_sdbp::util::ChannelPair;
+    /// use crate::noreya_sdbp::util::ChannelPair;
     ///
     /// let (mut server, mut client) = ChannelPair::new();
     /// server.tx().send("abc");
@@ -25,6 +25,14 @@ impl <T>ChannelPair<T> {
 
         let (tx0,rx0) = unbounded();
         let (tx1,rx1) = unbounded();
+
+        (ChannelPair {tx: tx0, rx: rx1},ChannelPair{tx: tx1,rx: rx0})
+    }
+
+    pub fn new_bound() -> (ChannelPair<T>,ChannelPair<T>) {
+
+        let (tx0,rx0) = bounded(1);
+        let (tx1,rx1) = bounded(1);
 
         (ChannelPair {tx: tx0, rx: rx1},ChannelPair{tx: tx1,rx: rx0})
     }

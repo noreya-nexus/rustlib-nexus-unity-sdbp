@@ -29,7 +29,7 @@ impl UdsClient {
     }
     pub fn connect(&mut self) -> Result<(),Error> {
 
-        let test = self.path.to_str().unwrap();
+        let test = self.path.to_str().expect("Could not get path as str");
 
         let stream = match UnixStream::connect(test) {
             Ok(value) => value,

@@ -16,7 +16,7 @@ impl <T:Clone>SharedObject<T> {
     }
 
     pub fn read(&mut self) -> T {
-        let guard = self.shared.read().unwrap();
+        let guard = self.shared.read().expect("Could not get RW lock");
         let result = guard.clone();
         result
     }
@@ -45,6 +45,6 @@ impl <T:Clone>SharedObject<T> {
     }
 
     pub fn shared(&self) -> RwLockReadGuard<T>{
-        self.shared.read().unwrap()
+        self.shared.read().expect("Could not get RW lock")
     }
 }

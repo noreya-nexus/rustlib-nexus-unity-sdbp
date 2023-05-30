@@ -40,7 +40,7 @@ impl Stats {
     }
 
     pub fn update(&mut self) {
-        self.timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos();
+        self.timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).expect("Could not get system time").as_nanos();
     }
 
 

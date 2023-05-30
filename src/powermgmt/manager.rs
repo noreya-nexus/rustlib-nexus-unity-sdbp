@@ -82,33 +82,53 @@ impl PowerManager {
         Ok(PowerManager{com : UnixStreamReader::from_unix_stream(stream,timeout)})
             }
 
-    pub fn request(&mut self,slot : u8, max_power_3v3 : u16, max_power_5v: u16, max_power_12v : u16) -> PowerBudgetResponse{
+    pub fn request(&mut self,slot : u8, max_power_3v3 : u16, max_power_5v: u16, max_power_12v : u16) -> Result <PowerBudgetResponse,String>{
 
         let tmp = PowerBudgetRequest::new(slot,max_power_3v3,max_power_5v,max_power_12v);
-        let string = serde_json::to_string(&tmp).unwrap();
+        let string = serde_json::to_string(&tmp).expect("Could not convert struct to string");
 
-        info!("{:?}",string);
+        debug!("Request: {:?}",string);
 
-        self.com.write_msg(string.as_bytes()).unwrap();
-        let response = self.com.read_msg().unwrap();
+        match self.com.write_msg(string.as_bytes()) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err("Power management request failed".to_string());
+            }
+        };
+        let response =  match self.com.read_msg() {
+            Ok(val) => {val}
+            Err(_) => {
+                return Err("Power management request failed (response)".to_string());
+            }
+        };
 
-        info!("{:?}",String::from_utf8(response.clone()));
+        debug!("Response: {:?}",String::from_utf8(response.clone()));
 
-        let json : PowerBudgetResponse = serde_json::from_slice(response.as_slice()).unwrap();
+        let json : PowerBudgetResponse = serde_json::from_slice(response.as_slice()).expect("Could not convert json to struct");
 
-        return json;
+        return Ok(json);
     }
 
 
-    pub fn finish_request(&mut self)  -> PowerFinishResponse {
+    pub fn finish_request(&mut self)  -> Result<PowerFinishResponse,String> {
         let tmp = PowerFinishRequest::new();
-        let string = serde_json::to_string(&tmp).unwrap();
+        let string = serde_json::to_string(&tmp).expect("Could not convert struct to string");
 
-        self.com.write_msg(string.as_bytes()).unwrap();
-        let response = self.com.read_msg().unwrap();
-        info!("{:?}",String::from_utf8(response.clone()));
-        let json : PowerFinishResponse = serde_json::from_slice(response.as_slice()).unwrap();
+        match self.com.write_msg(string.as_bytes()) {
+            Ok(_) => {}
+            Err(_) => {
+                return Err("Power management finish request failed".to_string());
+            }
+        };
+        let response = match self.com.read_msg() {
+            Ok(val) => {val}
+            Err(_) => {
+                return Err("Power management finish request failed (response)".to_string());
+            }
+        };
+        debug!("Finish response: {:?}",String::from_utf8(response.clone()));
+        let json : PowerFinishResponse = serde_json::from_slice(response.as_slice()).expect("Could not convert json to struct");
 
-        return json;
+        return Ok(json);
     }
 }

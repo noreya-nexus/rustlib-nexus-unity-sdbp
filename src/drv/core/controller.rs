@@ -18,12 +18,16 @@ impl Controller {
        VirtualDeviceThread::start(name, id ,pair,handle_func,shared)
     }
 
-    fn handle_evt(evt :  DeviceEvent, map : &mut HashMap<u16,DeviceThread>, com : &mut ComHandler, shared : &mut SharedStats, handle_func : FuncDeviceHandler) {
+    fn handle_evt(evt :  DeviceEvent, map : &mut HashMap<u16,DeviceThread>, com : &mut ComHandler, shared : &mut SharedStats, handle_func : FuncDeviceHandler, compatible_fw_major: u16, compatible_fw_minor: u16) {
 
         let mut stats = shared.read();
 
         if evt.evt_type == DeviceEventType::Connected {
             trace!("{:?}", evt);
+            if map.get(&evt.id).is_some() {
+                error!("Slot {} already registered!", evt.id);
+                return;
+            }
 
             let pair = com.register_new_device(evt.id);
 
@@ -39,15 +43,15 @@ impl Controller {
                     }
                 };
 
-                let device = DeviceThread::start(format!("device-{}-{}", &stats.get_name().as_str(), evt.id), pair, desc.clone(), handle_func);
+                let device = DeviceThread::start(format!("dev-slot-{}", evt.id), pair, desc.clone(), handle_func, compatible_fw_major, compatible_fw_minor);
                 map.insert(evt.id, device);
                 if !evt.is_virtual {
                     stats.get_devices().push(desc);
                 }
 
                 match shared.write(stats,Some(Duration::from_secs(100))) {
-                    Ok(_) => info!("Write was successful"),
-                    Err(_) => error!("Write to shared stats failed.")
+                    Ok(_) => debug!("Write was successful"),
+                    Err(_) => error!("Write to shared stats failed!")
                 };
             }
 
@@ -82,8 +86,8 @@ impl Controller {
                 }
 
                 match shared.write(stats,Some(Duration::from_secs(100))) {
-                    Ok(_) => info!("Write was successful"),
-                    Err(_) => error!("Write to shared stats failed.")
+                    Ok(_) => debug!("Write was successful"),
+                    Err(_) => error!("Write to shared stats failed!")
                 };
             }
 
@@ -93,27 +97,45 @@ impl Controller {
             let t = map.get(&evt.id);
 
             let list = stats.get_devices();
+            let mut found = false;
             for i in 0..list.len() {
-
-                if list.get(i).unwrap().adr() == evt.id {
-                    info!("Removed Device id {}",evt.id);
-                    list.remove(i);
-                }
+                match list.get(i) {
+                    None => {
+                        info!("Could not find device in connected list")
+                    }
+                    Some(val) => {
+                        if val.adr() == evt.id {
+                            info!("Removed device from slot {}", evt.id);
+                            list.remove(i);
+                            found=true;
+                            break;
+                        }
+                    }
+                };
+            }
+            if !found {
+                debug!("Device not found for removal {} (not handled by this driver)", evt.id);
+                return;
             }
             match shared.write(stats,Some(Duration::from_secs(100))) {
                Ok(_) => (),
-               Err(_) => error!("Write to shared stats failed.")
+               Err(_) => error!("Write to shared stats failed")
             };
-            info!("{}",shared.read());
-            if t.is_some() {
-                t.unwrap().stop(Duration::from_millis(1000));
-            }
+            //info!("{}",shared.read());
+            match t {
+                None => {
+                    warn!("Could not stop thread!");
+                }
+                Some(thread) => {
+                    thread.stop(Duration::from_millis(1000));
+                }
+            };
             com.unregister_device(evt.id);
             map.remove(&evt.id);
         }
     }
 
-    fn task(ctl_pair : ChannelPair<ManagedThreadState>, mut com : ComHandler, chn_devt : Receiver<DeviceEvent>,stats : SharedStats, func_handle : FuncDeviceHandler){
+    fn task(ctl_pair : ChannelPair<ManagedThreadState>, mut com : ComHandler, chn_devt : Receiver<DeviceEvent>,stats : SharedStats, func_handle : FuncDeviceHandler, compatible_fw_major: u16, compatible_fw_minor: u16){
 
         let mut shared = stats;
         let mut stopped = false;
@@ -135,18 +157,22 @@ impl Controller {
                 i if i == op_evt => {
                     let event = op.recv(&chn_devt);
                     match event {
-                        Ok(value) => Controller::handle_evt(value, &mut device_map, &mut com, &mut shared, func_handle),
-                        Err(_err) => error!("{:?}", _err)
+                        Ok(value) => Controller::handle_evt(value, &mut device_map, &mut com, &mut shared, func_handle, compatible_fw_major, compatible_fw_minor),
+                        Err(err) => error!("Controller error: {:?}", err)
                     }
                 },
                 i if i == op_ctl => {
-                    let cmd = op.recv(&ctl_pair.rx()).unwrap();
+                    let cmd = op.recv(&ctl_pair.rx());
                     match cmd {
-                        ManagedThreadState::STOPPED => {
-                            let _ = ctl_pair.tx().send(ManagedThreadState::OK);
-                            stopped = true;
-                        },
-                        _ => (),
+                        Ok(val) => {
+                            if val == ManagedThreadState::STOPPED {
+                                let _ = ctl_pair.tx().send(ManagedThreadState::OK);
+                                stopped = true;
+                            }
+                        }
+                        Err(err) => {
+                            error!("Controller error: {:?}", err)
+                        }
                     };
                 },
                 _ => (),
@@ -160,9 +186,9 @@ impl Controller {
         info!("Stopped Controller");
     }
 
-    pub fn start(com : ComHandler, chn_devt : Receiver<DeviceEvent>, stats : SharedStats, handle_func :  FuncDeviceHandler ) -> Controller {
+    pub fn start(com : ComHandler, chn_devt : Receiver<DeviceEvent>, stats : SharedStats, handle_func :  FuncDeviceHandler, compatible_fw_major: u16, compatible_fw_minor: u16 ) -> Controller {
 
-        let handle = spawn("Controller".to_string(),move |ctl_pair |  Controller::task(ctl_pair,com,chn_devt,stats,handle_func));
+        let handle = spawn("Controller".to_string(),move |ctl_pair |  Controller::task(ctl_pair,com,chn_devt,stats,handle_func, compatible_fw_major, compatible_fw_minor));
         Controller {handle}
     }
 

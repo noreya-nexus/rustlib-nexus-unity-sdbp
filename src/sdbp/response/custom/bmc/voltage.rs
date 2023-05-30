@@ -10,16 +10,16 @@ pub struct Voltage {
 
 #[derive(Debug,Clone, serde::Serialize, serde::Deserialize)]
 pub struct VoltageRest {
-    pub voltage_1v8 : u32,
-    pub voltage_rtc : u32,
+    pub voltage_1v8 : u32, // IMPROVEMENT: Add unit suffix
+    pub voltage_rtc : u32, // IMPROVEMENT: Add unit suffix
 }
 
 #[derive(Debug,Clone, serde::Serialize, serde::Deserialize)]
 pub struct TemperatureRest {
     #[serde(serialize_with = "round_temp")]
-    pub ntc_0 : f32,
+    pub ntc_0 : f32, // IMPROVEMENT: Add unit suffix
     #[serde(serialize_with = "round_temp")]
-    pub ntc_1 : f32,
+    pub ntc_1 : f32, // IMPROVEMENT: Add unit suffix
 }
 
 fn round_temp<S>(x: &f32, s: S) -> Result<S::Ok, S::Error>

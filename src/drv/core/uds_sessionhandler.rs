@@ -52,7 +52,8 @@ impl UdsSessionHandler {
         let stopped = false;
         let mut shared = stats;
         let mut _stats  = shared.read();
-        debug!("Started {}",std::thread::current().name().unwrap());
+        let thread_name = std::thread::current().name().expect("Could not get tread name").to_string();
+        debug!("Started {}",thread_name);
         trace!("Stats: {}",_stats);
 
         let mut reader = UnixStreamReader::from_unix_stream(stream,Some(Duration::from_millis(500)));
@@ -65,7 +66,7 @@ impl UdsSessionHandler {
 
                 match err.kind() {
                     ErrorKind::TimedOut => (),
-                    ErrorKind::ConnectionAborted => { trace!("{} - Socket closed",std::thread::current().name().unwrap()); break },
+                    ErrorKind::ConnectionAborted => { trace!("{} - Socket closed",thread_name); break },
                     _ => (),
                 };
             } else if let Ok(input) = raw_input {
@@ -92,10 +93,15 @@ impl UdsSessionHandler {
                                let mut response = Response::new_empty_response();
                                let mut tlv = TlvValue::new();
 
-                               let msg = value.get_msg().unwrap();
-                               tlv.push(Tag::Response,TlvValue::from(msg));
-                               response.append_bytes(tlv.into_bytes().as_slice());
-                               response
+                               let msg = match value.get_msg() {
+                                   None => {Response::new_error(Error::DeviceNotConnected)}
+                                   Some(val) => {
+                                       tlv.push(Tag::Response,TlvValue::from(val));
+                                       response.append_bytes(tlv.into_bytes().as_slice());
+                                       response
+                                   }
+                               };
+                               msg
                            }
                        };
                        response
@@ -111,14 +117,20 @@ impl UdsSessionHandler {
             }
 
             if !ctl_pair.rx().is_empty() {
-                if ctl_pair.rx().recv().unwrap() == ManagedThreadState::STOPPED {
-                    let _ = ctl_pair.tx().send(ManagedThreadState::OK);
-                    break;
-                }
+                match ctl_pair.rx().recv() {
+                    Ok(val) => {
+                        if val == ManagedThreadState::STOPPED {
+                            let _ = ctl_pair.tx().send(ManagedThreadState::OK);
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        warn!("Could not receive thread state!");
+                    }
+                };
             }
-
         }
-        debug!("Stopped {}",std::thread::current().name().unwrap());
+        debug!("Stopped {}",thread_name);
         let _ = chn_result.send(UdsSessionResult::disconnected(nr));
     }
 

@@ -17,9 +17,6 @@ impl ModApi {
     }
 
     pub fn info(version: &Version, sdbpk_version: &Version) -> Response {
-        Vec::<u8>::new();
-
-
         let mut tlv = TlvValue::new();
         let array = tlv.push(Tag::InfoBlock,TlvValue::new_array()).unwrap();
 
@@ -71,6 +68,7 @@ impl ModApi {
                 array.push(Tag::SupportedSdbpVersion,TlvValue::from(device.protocol_version().clone()));
                 array.push(Tag::MaxFrameSize,TlvValue::from(device.max_frame_size()));
                 array.push(Tag::SerialNumber, TlvValue::from(device.serial().clone()));
+                array.push(Tag::DeviceSession, TlvValue::from(device.device_session().clone()));
 
             }
         }

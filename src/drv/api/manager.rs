@@ -134,7 +134,7 @@ impl Manager {
         let tlv = match TlvValue::try_from(response.get_payload()) {
             Ok(value ) => value,
             Err(_err)  =>  {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed."))
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed (get_info)."))
             },
         };
 
@@ -163,7 +163,7 @@ impl Manager {
         let tlv = match TlvValue::try_from(response.get_payload()) {
             Ok(value ) => value,
             Err(_err)  =>  {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed."))
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed (get_device_list)."))
             },
         };
 
@@ -194,6 +194,7 @@ impl Manager {
                         Tag::MaxPower12v => desc.set_max_power_12v(value.as_u16().unwrap()),
                         Tag::MaxSclkSpeed => desc.set_max_sclk_speed(value.as_32().unwrap()),
                         Tag::VendorProductId => desc.set_vendor_product_id(value.as_string().unwrap().clone()),
+                        Tag::DeviceSession => desc.set_device_session(value.as_string().unwrap().clone()),
                         _ => (),
                     }
                 }
@@ -231,7 +232,7 @@ impl Manager {
         let tlv = match TlvValue::try_from(response.get_payload()) {
             Ok(value ) => value,
             Err(_err)  =>  {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed."))
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed (raw_command)."))
             },
         };
 
@@ -265,7 +266,7 @@ impl Manager {
         let tlv = match TlvValue::try_from(response.get_payload()) {
             Ok(value ) => value,
             Err(_err)  =>  {
-                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed."))
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed (device_command)."))
             },
         };
 
@@ -293,7 +294,7 @@ impl Manager {
 
         let tlv = match TlvValue::try_from(response.get_payload()) {
             Ok(value ) => value,
-            Err(_err)  =>  return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed.")),
+            Err(_err)  =>  return Err(std::io::Error::new(std::io::ErrorKind::InvalidData,"TLV Parsing failed (get_descriptor).")),
         };
 
 

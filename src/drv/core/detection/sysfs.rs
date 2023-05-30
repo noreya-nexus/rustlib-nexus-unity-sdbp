@@ -2,13 +2,15 @@ use std::fs::{File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 use filetime::FileTime;
+use rand::{thread_rng, Rng};
 
 use super::error::ParseDescriptorError;
 use regex::Regex;
 use crate::datatypes::*;
 use crate::drv::core::detection::error::ParseDescriptorErrorSource;
 use std::convert::TryFrom;
-use crc::{crc32, Hasher32};
+use crc::{Crc, CRC_32_BZIP2};
+use rand::distributions::Alphanumeric;
 
 #[allow(non_snake_case)]
 mod DescriptorFileNames {
@@ -34,7 +36,7 @@ fn read_string(file_path: PathBuf) -> Option<String> {
     let tries: u8 = 20;
     for _  in 0..tries {  // In case the resource is busy we need to try several times
 
-        trace!("Read from: {}", file_path.to_str().unwrap());
+        trace!("Read from: {}", file_path.to_str().expect("Could not get file path"));
 
         let mut file = match File::open(&file_path) {
             Ok(value) => value,
@@ -84,7 +86,7 @@ pub fn get_vendor_id(path : &PathBuf) -> Result<String,ParseDescriptorError> {
 }
 
 pub fn get_timestamp(path : &PathBuf) -> u32 {
-    let  meta = std::fs::metadata(path).unwrap();
+    let  meta = std::fs::metadata(path).expect("Could not get timestamp");
     FileTime::from_last_modification_time(&meta).nanoseconds()
 }
 
@@ -121,10 +123,11 @@ pub fn getid(path : &PathBuf) -> Result<u32,ParseDescriptorError>{
     hash_input.extend_from_slice(&r_max_power_5v0.to_be_bytes());
     hash_input.extend_from_slice(&r_max_power_3v3.to_be_bytes());
     //hash_input.extend_from_slice(&ts.to_be_bytes());
-    let mut digest = crc32::Digest::new(crc32::IEEE);
-    digest.write(hash_input.as_slice());
+    const CRC: Crc<u32> = Crc::<u32>::new(&CRC_32_BZIP2);
+    let mut digest = CRC.digest();
+    digest.update(hash_input.as_slice());
 
-    return Ok(digest.sum32());
+    return Ok(digest.finalize());
 }
 
 pub fn get_rid(path : &PathBuf) -> Result<u64,ParseDescriptorError>  {
@@ -140,8 +143,8 @@ pub fn get_rid(path : &PathBuf) -> Result<u64,ParseDescriptorError>  {
 pub fn get_descriptor(path : &PathBuf) -> Result<Descriptor,ParseDescriptorError> {
 
 
-    let regex = Regex::new("slot([0-9]*)").unwrap();
-    let mut cap = regex.captures_iter(path.to_str().unwrap());
+    let regex = Regex::new("slot([0-9]*)").expect("Could not build regex");
+    let mut cap = regex.captures_iter(path.to_str().expect("Could not convert to path"));
 
 
     let dev_adr = match cap.next() {
@@ -236,6 +239,13 @@ pub fn get_descriptor(path : &PathBuf) -> Result<Descriptor,ParseDescriptorError
         false => return  Err(ParseDescriptorError::new(ParseDescriptorErrorSource::DevAdr)),
     }
 
+    let rand_string: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(64)
+        .map(char::from)
+        .collect();
+
+    result.set_device_session(rand_string.to_ascii_uppercase());
     result.set_dev_file(dev_file);
     result.set_bootloader_state(format!("{}",r_bootloader_state));
     result.set_fw_version(r_fw_version);
@@ -250,7 +260,7 @@ pub fn get_descriptor(path : &PathBuf) -> Result<Descriptor,ParseDescriptorError
     result.set_serial(r_serial_code);
     result.set_vendor_name(r_vendor_name);
     result.set_vendor_product_id(r_vendor_product_id);
-    result.set_uid(getid(path).unwrap());
+    result.set_uid(getid(path).expect("Could not get id"));
     Ok(result)
 }
 

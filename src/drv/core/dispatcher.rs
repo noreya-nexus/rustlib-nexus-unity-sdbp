@@ -63,8 +63,15 @@ impl DispatcherLogic {
 
     pub fn send_to_device(&self, msg : PMsg) {
         let dst = self.rt_devices.get(&msg.get_dst());
-        match dst.unwrap().send(msg){
-            Err(_err) => error!("{:?}",_err),
+        let check_dst = match dst {
+            None => {
+                error!("Could not send to device");
+                return;
+            }
+            Some(sender) => {sender}
+        };
+        match check_dst.send(msg){
+            Err(err) => error!("Could not send to device: {:?}", err),
             _=> (),
         };
     }
@@ -72,9 +79,15 @@ impl DispatcherLogic {
     pub fn send_to_client(&self, msg : PMsg) {
 
         let dst = self.rt_devices.get(&msg.get_dst());
-        let result = dst.unwrap().send(msg);
-        match result {
-            Err(_err) => error!("{:?}",_err),
+        let check_dst = match dst {
+            None => {
+                error!("Could not send to client");
+                return;
+            }
+            Some(sender) => {sender}
+        };
+        match check_dst.send(msg) {
+            Err(err) => error!("Could not send to client: {:?}", err),
             _ => (),
         }
     }
@@ -134,7 +147,15 @@ impl DispatcherLogic {
                     }
                 },
                 i if i == ctl => {
-                    let cmd = op.recv(&ctl_pair.rx()).unwrap();
+                    let cmd = op.recv(&ctl_pair.rx());
+                    let cmd = match cmd {
+                        Ok(cmd) => {cmd}
+                        Err(_) => {
+                            error!("Could not get ManagedThreadState");
+                            stopped = true;
+                            continue;
+                        }
+                    };
                     match cmd {
                         ManagedThreadState::STOPPED => {
                             let _ = ctl_pair.tx().send(ManagedThreadState::OK);

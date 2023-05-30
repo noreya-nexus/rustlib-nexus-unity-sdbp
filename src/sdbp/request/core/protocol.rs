@@ -72,6 +72,12 @@ pub mod classes {
             pub const ERROR : u8             = 0x01;
             pub const GET_NOTIFICATION : u8  = 0x02;
         }
+
+        pub mod return_code {
+            pub const COMMAND_INVALID: u8 = 0x01;
+            pub const WRONG_LENGTH: u8 = 0x02;
+            pub const NO_NOTIFICATION_PENDING: u8 = 0x03;
+        }
     }
 
 }

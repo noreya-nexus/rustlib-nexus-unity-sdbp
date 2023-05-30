@@ -26,6 +26,6 @@ impl UnixDomainSocket {
 
 impl Drop for UnixDomainSocket {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path).unwrap();
+        let _ = std::fs::remove_file(&self.path).expect("Could not cleanup UDS path");
     }
 }

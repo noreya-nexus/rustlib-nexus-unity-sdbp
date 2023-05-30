@@ -8,6 +8,7 @@ use crate::drv::core::*;
 use std::io::{Error, ErrorKind};
 
 use std::collections::hash_map::Iter;
+use std::os::unix::net::UnixStream;
 
 // pub struct UdsServerBuilder {
 //
@@ -36,7 +37,7 @@ use std::collections::hash_map::Iter;
 
 
 pub struct UdsServer {
-
+    path: String,
     handle : ManagedThreadHandle<()>,
 }
 
@@ -118,12 +119,13 @@ impl UdsServer {
 
         let mut stopped = false;
         let mut clients = ClientMap::new();
+        let thread_name = std::thread::current().name().expect("Could not get tread name").to_string();
 
-        info!("Started {}",std::thread::current().name().unwrap());
+        info!("Started {}",thread_name);
         let path : PathBuf = PathBuf::from(format!("{}",meta.socket()));
 
-        if !path.parent().unwrap().exists() {
-            match create_dir_all(path.parent().unwrap()) {
+        if !path.parent().expect("Could not find UDS socket path!").exists() {
+            match create_dir_all(path.parent().expect("Could not create service runtime directory!")) {
                 Err(_err) => {
                     error!("{:?}",_err.to_string());
                     return
@@ -136,8 +138,8 @@ impl UdsServer {
 
         let chn_result = crossbeam_channel::unbounded();
 
-        let uds = UnixDomainSocket::bind(path.clone()).unwrap();
-        let _ = uds.get_listener().set_nonblocking(true);
+        let uds = UnixDomainSocket::bind(path.clone()).expect("Could not bind UDS socket!");
+        let _ = uds.get_listener().set_nonblocking(false);
 
         let meta = std::fs::metadata(path.clone()).expect("Could not read socket metadata!");
         let mut perm = meta.permissions();
@@ -148,7 +150,7 @@ impl UdsServer {
             match stream {
                 Ok(stream) => {
                     /* connection succeeded */
-                    let id = clients.get_next().unwrap();
+                    let id = clients.get_next().expect("Could not get new client id!");
                     let pair = com.register_new_client(id);
                     let handle = UdsSessionHandler::start(id, pair, stream, chn_result.0.clone(), stats.clone());
                     clients.insert(id, handle);
@@ -163,10 +165,15 @@ impl UdsServer {
                     debug!("Unregister Client: {:?}",value);
                     com.unregister_client(value.get_id());
                     let t = clients.get(value.get_id());
-                    if t.is_some() {
-                        t.unwrap().stop(Duration::from_millis(1000));
-                        clients.remove(value.get_id());
-                    }
+                    match t  {
+                        None => {
+                           warn!("Could not stop UdsSessionHandler!")
+                        }
+                        Some(thread) => {
+                            thread.stop(Duration::from_millis(1000));
+                        }
+                    };
+                    clients.remove(value.get_id());
                 },
                 _ =>  trace!("Result is empty!"),
             };
@@ -181,17 +188,18 @@ impl UdsServer {
             t.1.stop(Duration::from_millis(1000));
         }
 
-        debug!("Stopped {}",std::thread::current().name().unwrap());
+        info!("Stopped {}",thread_name);
     }
 
     pub fn start(meta: DrvMeta, com : ComHandler,stats : SharedStats) -> UdsServer {
-
-        let handle = spawn( "UDS-Handler".to_string(),move | ctl_pair| UdsServer::uds_server(ctl_pair, meta, com, stats));
-        UdsServer { handle}
+        let path = meta.socket().clone();
+        let handle = spawn( "UdsHandler".to_string(),move | ctl_pair| UdsServer::uds_server(ctl_pair, meta, com, stats));
+        UdsServer { path: format!("{}",path), handle}
     }
 
     pub fn stop(&self, dur : Duration) {
-     let _ = self.handle.stop(dur);
+        let _ = self.handle.stop(dur);
+        let _ = UnixStream::connect(&self.path); // Trigger wakeup
     }
 }
 

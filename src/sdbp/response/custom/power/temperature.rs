@@ -7,9 +7,9 @@ use crate::sdbp::request::custom::power::protocol::*;
 #[derive(Debug,Clone, serde::Serialize, serde::Deserialize)]
 pub struct ResponseTemperature {
     #[serde(serialize_with = "round_temp")]
-    pub on_board_temp: f32,
+    pub on_board_temp: f32, // IMPROVEMENT: Add unit suffix
     #[serde(serialize_with = "round_temp")]
-    pub pmc_temp: f32
+    pub pmc_temp: f32 // IMPROVEMENT: Add unit suffix
 }
 
 

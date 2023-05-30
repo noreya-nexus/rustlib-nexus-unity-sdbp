@@ -1,13 +1,12 @@
-use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::collections::HashMap;
 use crossbeam_channel::{Sender, Receiver, RecvError};
+use mio::{Events, Interest, Poll, Token};
 
-use super::*;
 use crate::util::*;
-use crate::datatypes::BootloaderState;
 use regex::Regex;
+use udev::MonitorBuilder;
+use crate::drv::core::udevhandler::{DEVICE_CLASS, event_happened, init_devices};
 
 #[derive(Debug,Clone,Eq,Ord, PartialOrd, PartialEq)]
 pub struct DeviceMeta  {
@@ -109,114 +108,56 @@ pub struct DeviceHandler {
 
 impl DeviceHandler {
 
-    fn detect(filter : &DeviceFilter<String>) -> Vec<(PathBuf,DeviceMeta)> {
-
-        let mut detected_slots = vec![];
-
-        let paths = fs::read_dir("/sys/class/sdbp").unwrap();
-        for path in paths {
-            match path {
-
-                Ok(value) =>  {
-
-                    let path = value.path();
-
-                    let  id = match  sysfs::get_vendor_id(&path) {
-                        Err(_err) => continue,
-                        Ok(_value) => _value,
-                    };
-
-                    let rid = sysfs::get_rid(&path).unwrap();
-                    let hash = sysfs::getid(&path).unwrap();
-
-                    let meta = DeviceMeta::new(rid,hash);
-
-
-                    let boot = sysfs::get_bootloader_state(&path);
-                    match boot {
-                        Ok(BootloaderState::NotSupported) | Ok(BootloaderState::Supported) => {
-                            if filter.is_match(id) {
-                                //error!("{:?} RID: {}, HASH: {}",path,rid,hash);
-                                detected_slots.push((path,meta));
-                            }
-                        }
-                        _ => {
-                            trace!("Detected device in Bootloader mode.");
-                        }
-                    }
-                },
-                _ => (),
-            };
-        }
-        detected_slots.sort();
-        detected_slots
+    pub(crate) fn get_device_nr(path : &PathBuf) -> u16 {
+        let regex = Regex::new("slot([0-9]*)").expect("Could not build regex");
+        let mut cap = regex.captures_iter(&path.to_str().expect("Could not get device path"));
+        let test = cap.next().expect("Could not iterate through devices");
+        return test[1].parse::<u16>().expect("Could not convert to u16");
     }
 
-
-    fn get_device_nr(path : &PathBuf) -> u16 {
-        let regex = Regex::new("slot([0-9]*)").unwrap();
-        let mut cap = regex.captures_iter(&path.to_str().unwrap());
-        let test = cap.next().unwrap();
-        return test[1].parse::<u16>().unwrap();
-    }
-
-    fn device_detection( ctl_pair : ChannelPair<ManagedThreadState>,sender : Sender<DeviceEvent>,filter : DeviceFilter<String>) {
-
+    fn device_detection( ctl_pair : ChannelPair<ManagedThreadState>,sender : Sender<DeviceEvent>, device_filter : DeviceFilter<String>) {
+        let thread_name = std::thread::current().name().expect("Could not get tread name").to_string();
         let mut stopped = false;
-        let mut activated_slots : HashMap<PathBuf,DeviceMeta> = HashMap::new();
+        // let mut activated_slots : HashMap<PathBuf,DeviceMeta> = HashMap::new();
+
+        init_devices(&sender, &device_filter);
+
+        let filter = MonitorBuilder::new().unwrap();
+        let filter = filter.match_subsystem(DEVICE_CLASS).unwrap();
+        let mut udev_socket = filter.listen().unwrap();
+        let mut poll = Poll::new().expect("Could not create poll instance");
+        let mut events = Events::with_capacity(1024);
+
+        poll.registry().register(
+            &mut udev_socket,
+            Token(0),
+            Interest::READABLE | Interest::WRITABLE,
+        ).expect("Could not register poll events");
 
         while !stopped {
-            ManagedThreadUtil::is_stopped(&mut stopped, &ctl_pair);
+            match poll.poll(&mut events, Some(Duration::from_millis(500))) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Poll Error: {:?}", err);
+                }
+            }
 
-            let detected_slots = DeviceHandler::detect(&filter);
-
-            let a = detected_slots.to_vec();
-
-            for device in a {
-
-                match activated_slots.get_mut(&device.0) {
-                    None => {
-                        let nr = DeviceHandler::get_device_nr(&device.0);
-                        sender.send(DeviceEventBuilder::generate(DeviceEventType::Connected, nr, &device.0,false)).unwrap();
-                        debug!("Connected Device: {:?}", &device.0);
-                        activated_slots.insert(device.0, device.1);
-                    },
-
-                    Some(value) => {
-                        if value.rid == device.1.rid && value.hash != device.1.hash {
-                            let nr = DeviceHandler::get_device_nr(&device.0);
-                            value.update_hash(device.1.hash);
-                            debug!("Updated Device: {:?}", &device.0);
-                            sender.send(DeviceEventBuilder::generate(DeviceEventType::Updated, nr, &device.0,false)).unwrap();
-
-                        }
+            for event in &events {
+                if event.token() == Token(0) && event.is_writable() {
+                    for event in udev_socket.iter() {
+                        event_happened(&sender, event, &device_filter);
                     }
                 }
             }
-
-            let mut removed_slots = vec![];
-
-            for (slot_path, meta) in &activated_slots {
-                if !&detected_slots.contains(&(slot_path.clone(), meta.clone())) {
-                    debug!("Disconnected Device: {:?} {:?}", &slot_path, meta.rid);
-
-                    let nr = DeviceHandler::get_device_nr(&slot_path);
-                    sender.send(DeviceEventBuilder::generate(DeviceEventType::Disconnected, nr,&slot_path,false)).unwrap();
-                    removed_slots.push(slot_path.clone());
-                }
-            }
-
-            for dev in removed_slots {
-                activated_slots.remove(&dev);
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            ManagedThreadUtil::is_stopped(&mut stopped, &ctl_pair);
         }
+        info!("Stopped {}",thread_name);
     }
 
     pub fn start(filter: DeviceFilter<String>, rx_chn : Receiver<DeviceEvent>, tx_chn : Sender<DeviceEvent>) -> DeviceHandler{
 
         //let (sender,receiver) = crossbeam_channel::unbounded();
-        let handle = spawn("Device Detection".to_string(), move |stopped| DeviceHandler::device_detection(stopped,tx_chn,filter));
+        let handle = spawn("DeviceDetection".to_string(), move |stopped| DeviceHandler::device_detection(stopped,tx_chn,filter));
         DeviceHandler{handle, queue_rcv: rx_chn}
     }
 

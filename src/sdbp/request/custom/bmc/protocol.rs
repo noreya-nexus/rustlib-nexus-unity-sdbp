@@ -67,9 +67,10 @@ pub mod classes {
             pub const ERROR: u8 = 0x01;
             pub const GET_HUB_STATE: u8 = 0x02;
             pub const SET_HUB_STATE: u8 = 0x03;
-            pub const GET_PORT_STATE: u8 = 0x04;
-            pub const SET_PORT_STATE: u8 = 0x05;
+            pub const GET_USB_SLOT_STATE: u8 = 0x04;
+            pub const SET_USB_SLOT_STATE: u8 = 0x05;
             pub const HUB_RESET: u8 = 0x06;
+            pub const GET_PORT_MAPPING: u8 = 0x07;
         }
 
     }
@@ -94,7 +95,7 @@ pub mod classes {
         pub const OK: (u8, &'static str) = (0x00, "success");
         pub const FAILED: (u8, &'static str) = (0x01, "failed");
         pub const PROTECTED: (u8, &'static str) = (0x02, "flash is protected");
-        pub const OUT_OF_RANGE: (u8, &'static str) = (0x03, "timeout setting is out of range");
+        pub const OUT_OF_RANGE: (u8, &'static str) = (0x03, "setting is out of range");
         pub const WRONG_STATE: (u8, &'static str) = (0x04, "wrong state");
         pub const ERR_LIST: [(u8, &'static str); 4] = [FAILED, PROTECTED, OUT_OF_RANGE, WRONG_STATE];
     }

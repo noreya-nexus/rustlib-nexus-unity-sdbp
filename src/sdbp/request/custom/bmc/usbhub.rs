@@ -18,8 +18,13 @@ impl UsbHubBuilder {
         Ok(self.frame)
     }
 
-    pub fn get_port_state(mut self) -> Result<Vec<u8>,Error> {
-        self.frame.push(classes::usbhub::operation_code::GET_PORT_STATE);
+    pub fn get_slot_state(mut self) -> Result<Vec<u8>,Error> {
+        self.frame.push(classes::usbhub::operation_code::GET_USB_SLOT_STATE);
+        Ok(self.frame)
+    }
+
+    pub fn get_port_mapping(mut self) -> Result<Vec<u8>,Error> {
+        self.frame.push(classes::usbhub::operation_code::GET_PORT_MAPPING);
         Ok(self.frame)
     }
 
@@ -34,10 +39,10 @@ impl UsbHubBuilder {
         Ok(self.frame)
     }
 
-    pub fn set_port_state(mut self, state: bool, number: u8) -> Result<Vec<u8>,Error> {
-        if number == 0 || number > 7 { return Err(Error::new(ErrorKind::Other,"port out of range")); }
+    pub fn set_slot_state(mut self, state: bool, number: u8) -> Result<Vec<u8>,Error> {
+        if number < 2 || number > 8 { return Err(Error::new(ErrorKind::Other,"port out of range")); }
 
-        self.frame.push(classes::usbhub::operation_code::SET_PORT_STATE);
+        self.frame.push(classes::usbhub::operation_code::SET_USB_SLOT_STATE);
         if state {
             self.frame.push(0x01);
         }

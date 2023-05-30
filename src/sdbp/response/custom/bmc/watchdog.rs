@@ -7,9 +7,9 @@ use crate::sdbp::response::custom::bmc::check_status;
 pub mod json_response {
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub struct Timeout {
-        pub timeout: u32,
-        pub timeout_left: u32,
-        pub shutdown_timeout: u32,
+        pub timeout: u32, // IMPROVEMENT: Add unit suffix
+        pub timeout_left: u32, // IMPROVEMENT: Add unit suffix
+        pub shutdown_timeout: u32, // IMPROVEMENT: Add unit suffix
         pub emergency_mode: bool,
     }
 
@@ -42,7 +42,7 @@ pub mod json_response {
 pub mod ipc {
     #[derive(Debug, Clone)]
     pub struct GetTimeout {
-        pub timeout: u32,
+        pub timeout: u32, // IMPROVEMENT: Add unit suffix
     }
 
     #[derive(Debug, Clone)]

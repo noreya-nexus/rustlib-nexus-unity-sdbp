@@ -52,7 +52,7 @@ impl PinValues {
             let mut voltage = 0;
             voltage |= (input[0] as u32) << 8;
             voltage |= (input[1] as u32) << 0;
-            self.pin_type = "voltage_mV".to_string();
+            self.pin_type = "voltage_millivolt".to_string();
             self.value = voltage;
         }
 
@@ -63,7 +63,7 @@ impl PinValues {
             let mut current = 0;
             current |= (input[0] as u32) << 8;
             current |= (input[1] as u32) << 0;
-            self.pin_type = "current_mA".to_string();
+            self.pin_type = "current_milliampere".to_string();
             self.value = current;
 
         }
@@ -87,7 +87,7 @@ impl PinValues {
             frequency_counter_value |= (input[1] as u32) << 16;
             frequency_counter_value |= (input[2] as u32) << 8;
             frequency_counter_value |= (input[3] as u32) << 0;
-            self.pin_type = "frequency_Hz".to_string();
+            self.pin_type = "frequency_hertz".to_string();
             self.value = frequency_counter_value;
         }
     }

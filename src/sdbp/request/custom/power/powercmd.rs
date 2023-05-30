@@ -74,7 +74,7 @@ mod test {
         ($result:expr) => {
             match $result {
                 Ok(value) => value,
-                Err(err) => panic!(format!("{}", err)),
+                Err(err) => panic!("{}", err),
             }
         };
     }

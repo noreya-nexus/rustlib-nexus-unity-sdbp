@@ -5,10 +5,10 @@ use crate::sdbp::request::custom::power::protocol::*;
 
 #[derive(Debug,Clone, serde::Serialize, serde::Deserialize)]
 pub struct Source {
-    pub source_3v3 : u16,
-    pub source_5v0: u16,
-    pub source_12v : u16,
-    pub source_total : u16,
+    pub source_3v3 : u16, // IMPROVEMENT: Add unit suffix
+    pub source_5v0: u16, // IMPROVEMENT: Add unit suffix
+    pub source_12v : u16, // IMPROVEMENT: Add unit suffix
+    pub source_total : u16, // IMPROVEMENT: Add unit suffix
 
     pub efficiency_factor_3v3 : u8,
     pub efficiency_factor_5v0: u8,
@@ -51,7 +51,7 @@ pub struct ProtectionStatus{
     pub ocp_cnt_5v0: u16,
     pub ocp_cnt_12v: u16,
 
-    pub pmc_temperature: u16,
+    pub pmc_temperature: u16, // IMPROVEMENT: Add unit suffix
     pub total_power_overload : u16,
 }
 
